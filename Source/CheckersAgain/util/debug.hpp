@@ -3,18 +3,21 @@
 
 #include "typedefs.hpp"
 
-#if FRUIT_DEBUG
-#   include <csignal>
+// This is for until I figure out how to add compile defs in Unreal
+#define FRUIT_DEBUG
+
+
+#ifdef FRUIT_DEBUG
 #   include <iostream>
 #endif
-#if FRUIT_USE_BOOST
+#ifdef FRUIT_USE_BOOST
 #   include <boost/stacktrace.hpp>
 #endif
 
 
 
 /** FRUIT_FUNC prints the current function. */
-#if __GNUC__
+#ifdef __GNUC__
 #   define FRUIT_FUNC __PRETTY_FUNCTION__
 #else
 #   define FRUIT_FUNC __func__
@@ -23,17 +26,19 @@
 
 /** Running FRUIT_BREAKPOINT should do the same thing as a normal breakpoint.
  * This only works in debug builds and does nothing in a release build. */
-#if FRUIT_DEBUG
-# ifdef __linux__
-    // Linux
+#ifdef FRUIT_DEBUG
+# ifdef __unix__
+    // Linux and the rest of the Unix family
+#   include <csignal>
 #   define FRUIT_BREAKPOINT raise(SIGTRAP)
 # elif _WIN32
     // Windows
-#   define FRUIT_BREAKPOINT DebugBreak()
+#   include <intrin.h>
+#   define FRUIT_BREAKPOINT __debugbreak()
 # else
-#   warning \
-This operating system is not supported by breakpoint() yet. \
-Modify util/debug.hpp to get rid of this warning.
+#   pragma message (\
+"This operating system is not supported by breakpoint() yet." \
+"Modify util/debug.hpp to get rid of this warning.")
 #   define FRUIT_BREAKPOINT {}
 # endif
 #else
@@ -52,7 +57,7 @@ Modify util/debug.hpp to get rid of this warning.
 
 /** STACKTRACE is meant to print a stacktrace, but it doesn't work unless you
  * link Boost and set FRUIT_USE_BOOST. I don't even do that myself. */
-#if FRUIT_USE_BOOST
+#ifdef FRUIT_USE_BOOST
 #   define FRUIT_STACKTRACE\
         (boost::stacktrace::stacktrace())
 #else
@@ -62,22 +67,22 @@ Modify util/debug.hpp to get rid of this warning.
 
 /** FRUIT_ASSERT does a "gentle" assertion that doesn't crash the program.
  * FRUIT_ASSERT_MSG lets you add a message. */
-#if FRUIT_DEBUG
-#   define FRUIT_ASSERT(expression...) do {             \
-        if (!(expression)) {                            \
+#ifdef FRUIT_DEBUG
+#   define FRUIT_ASSERT(...) do {             \
+        if (!(__VA_ARGS__)) {                           \
             std::cerr << "SANITY TEST FAILED at "       \
                       << FRUIT_WHERE_AM_I << std::endl  \
-                      << "The following condition was not met: "#expression \
+                      << "The following condition was not met: "#__VA_ARGS__ \
                       << std::endl \
                       << FRUIT_STACKTRACE << std::endl; \
             FRUIT_BREAKPOINT;                           \
         }                                               \
     } while (false)
 
-#   define FRUIT_ASSERT_MSG(expression, message...) do {\
+#   define FRUIT_ASSERT_MSG(expression, ...) do {       \
         if (!(expression)) {                            \
             std::cerr << "SANITY TEST FAILED: "         \
-                      << (message) << std::endl         \
+                      << (__VA_ARGS__) << std::endl     \
                       << "At " << FRUIT_WHERE_AM_I << std::endl \
                       << "The following condition was not met: "#expression \
                       << std::endl \
@@ -87,20 +92,22 @@ Modify util/debug.hpp to get rid of this warning.
     } while (false)
 #else
 // Stubs for release mode.
-#   define FRUIT_ASSERT(expression...) do {} while (false)
-#   define FRUIT_ASSERT_MSG(expression, message...) do {} while (false)
+#   define FRUIT_ASSERT(...) do {} while (false)
+#   define FRUIT_ASSERT_MSG(expression, ...) do {} while (false)
 #endif
 
 
 
-/** Check whether an expression is true, for the purpose of sanity testing. */
-#define assert_(expression...) FRUIT_ASSERT(expression)
+/** Check whether an expression is true, for the purpose of sanity testing.
+ * syntax: assert_(expression) */
+#define assert_(...) FRUIT_ASSERT(__VA_ARGS__)
 
 
 /** It's `assert_` but with a custom message.
  * Note: Be careful to not put any commas in the expression. The preprocessor
- * isn't very smart. */
-#define assert_msg(expr, msg...) FRUIT_ASSERT_MSG(expr, msg)
+ * isn't very smart.
+ * syntax: assert_msg(expr, msg) */
+#define assert_msg(expr, ...) FRUIT_ASSERT_MSG(expr, __VA_ARGS__)
 
 
 /** Trigger a breakpoint and crash the program, even in release mode. */

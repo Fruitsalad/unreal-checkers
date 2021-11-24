@@ -12,3 +12,5 @@ Saved
 *.suo
 *.xcodeproj
 *.xcworkspace
+/Content/StarterContent/
+/Plugins/Developer/RiderLink/

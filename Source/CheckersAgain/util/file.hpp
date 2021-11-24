@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 
 inline String file_to_string(String$& file_path) {
   let file = fopen(file_path.c_str(), "r");
@@ -11,10 +15,11 @@ inline String file_to_string(String$& file_path) {
   fseek(file, 0, SEEK_END);
   let file_size = ftell(file);
   rewind(file);
-  
-  String file_contents;
-  file_contents.resize(file_size);
-  fread(file_contents.data(), sizeof(u8), file_size, file);
-  
-  return file_contents;
+
+  var file_contents = new char[file_size];
+  afterwards { delete[] file_contents; };
+  fread(file_contents, sizeof(u8), file_size, file);
+
+  let str = String(file_contents);
+  return str;
 }

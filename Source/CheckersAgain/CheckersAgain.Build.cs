@@ -6,6 +6,9 @@ public class CheckersAgain : ModuleRules
 {
 	public CheckersAgain(ReadOnlyTargetRules Target) : base(Target)
 	{
+		//PCHUsage = PCHUsageMode.NoSharedPCHs;
+		//PrivatePCHHeaderFile = "$pch.h";
+		CppStandard = CppStandardVersion.Cpp17;
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });

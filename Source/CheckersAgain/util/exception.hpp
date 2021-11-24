@@ -7,8 +7,8 @@
 #define THROW(msg...) throw Exception(__FILE__, __LINE__, __PRETTY_FUNCTION__, msg)
 #define THROW2(type, args...) throw type(__FILE__, __LINE__, __PRETTY_FUNCTION__, args)
 #else
-#define THROW(msg...) throw Exception(__FILE__, __LINE__, __func__, msg)
-#define THROW2(type, args...) throw type(__FILE__, __LINE__, __func__, args)
+#define THROW(...) throw Exception(__FILE__, __LINE__, __func__, __VA_ARGS__)
+#define THROW2(type, ...) throw type(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #endif
 
 class Exception : public std::exception

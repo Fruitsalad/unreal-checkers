@@ -43,3 +43,7 @@ template<class C, class D>
 bool was_found(const C& iterator, const D& container) {
   return iterator != container.end();
 }
+
+
+/** A function worthy of a separate JavaScript library, now as a one-liner. */
+template<class Scalar> bool is_even(Scalar scalar) { return scalar % 2 == 0; }

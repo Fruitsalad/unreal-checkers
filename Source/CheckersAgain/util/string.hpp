@@ -41,7 +41,7 @@ std::string to_string(T&& t) {
 
 }
 
-#define $(x...) (mysterious_string_stuff::to_string(x))
+#define $(...) (mysterious_string_stuff::to_string(__VA_ARGS__))
 
 
 template<class Number>
