@@ -4,6 +4,7 @@
 #include "GameFramework/GameState.h"
 #include "../blueprintbase/PieceBase.h"
 #include "../util.hpp"
+#include "CheckersAgain/map/Board.h"
 #include "CheckersAgain/map/BoardVisualizer.h"
 #include "CheckersState.generated.h"
 
@@ -19,22 +20,26 @@ public:
   Map<Vec2i, APieceBase*> piece_actors;
 
   bool is_whites_turn = true;
-  bool can_player_attack = false;
   bool has_already_moved = false;
+  Vec2i piece_being_moved;
+  uint longest_available_attack_chain = 0;
+  List<CheckersMove> available_moves;
   
   ACheckersState();
   void BeginPlay() override;
 
-  void on_piece_killed(Vec2i piece) override;
-  void on_piece_promoted(Vec2i piece) override;
-  void on_piece_moved(Vec2i piece, Vec2i new_position) override;
+  void on_piece_killed(Vec2i pos) override;
+  void on_piece_promoted(Vec2i pos) override;
+  void on_piece_moved(Vec2i pos, Vec2i new_position) override;
   
   void spawn_pieces();
 
   /** This function automagically guesses what kind of move it is. */
-  void commit_move(Vec2i piece, Vec2i destination);
-  void end_turn();  // Normally called by commit_move.
-  void end_game(bool did_white_win);
+  void move(Vec2i origin, Vec2i destination);
+  void maybe_promote(Vec2i pos);
+  void end_turn();
+  void start_turn();  // Automatically called by end_turn
+  void end_game(bool did_white_win);  // Automatically called by start_turn
 };
 
 

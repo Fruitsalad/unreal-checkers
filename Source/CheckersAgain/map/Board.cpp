@@ -13,7 +13,7 @@ ABoard::ABoard() {
 }
 
 void ABoard::init() {
-  prepare_empty_board(tilesWide);
+  prepare_empty_board(tiles_wide);
 }
 
 GridCell& ABoard::get(Vec2i pos) {
@@ -29,21 +29,21 @@ bool ABoard::tile_exists(Vec2i pos) const {
 }
 
 void ABoard::prepare_empty_board(uint new_width) {
-  tilesWide = new_width;
-  board.reset(tilesWide, tilesWide);
+  tiles_wide = new_width;
+  board.reset(tiles_wide, tiles_wide);
   for (var &cell : board)
     cell.occupant = CellOccupant::EMPTY;
 }
 
 void ABoard::prepare_default_board(uint new_width) {
-  tilesWide = new_width;
-  board.reset(tilesWide, tilesWide);
+  tiles_wide = new_width;
+  board.reset(tiles_wide, tiles_wide);
   
-  var top_empty_row = tilesWide / 2;
+  var top_empty_row = tiles_wide / 2;
   let bottom_empty_row = top_empty_row - 1;
 
   // If there is an uneven amount of rows, then we make three empty rows...
-  if (!is_even(tilesWide))
+  if (!is_even(tiles_wide))
     top_empty_row += 1;
 
   for_each_checkers_tile([&](uint x, uint y) {
@@ -57,15 +57,28 @@ void ABoard::prepare_default_board(uint new_width) {
 }
 
 
-
-static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
+static List<CheckersMove> get_legal_attacks__impl(
+    const ABoard* board, Vec2i start_pos, bool is_white, bool is_king,
+    const List<Vec2i>& newly_empty_tiles) {
+  // This function is recursive because when we find a valid attack, we need
+  // to see if we can find valid follow-up attacks. It's easiest to do that
+  // with a recursive function.
+  
   using C = CellOccupant;
 
-  List<Vec2i> result;
 
-  let piece = board->get(pos);
-  let is_white = piece.is_white();
-  let is_king = piece.is_king();
+  fn get_occupant = [&](Vec2i tile) -> CellOccupant {
+    // For follow-up attacks, we want to make sure we're not trying to kill the
+    // same piece twice.
+    for (let &newly_empty_tile : newly_empty_tiles)
+      if (newly_empty_tile == tile)
+        return CellOccupant::EMPTY;
+
+    return board->get(tile).occupant;
+  };
+  
+  
+  List<CheckersMove> result;
   
   // For each direction...
   let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
@@ -76,7 +89,7 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
 
     // Get the victim and the victim's neighbor...
     // The victim is the piece that this attack will kill.
-    var victim = pos + one_step[dir];
+    var victim = start_pos + one_step[dir];
     // The victim's neighbor is the tile that we will move to with this attack.
     var victims_neighbor = victim + one_step[dir];
 
@@ -87,7 +100,7 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
       continue; 
     
     // We can't attack an empty neighboring tile...
-    var victim_occupant = board->get(victim).occupant;
+    var victim_occupant = get_occupant(victim);
     if (victim_occupant == C::EMPTY) {
       // If the neighbor is empty and this is a normal piece, we're done...
       if (!is_king)
@@ -103,7 +116,7 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
         if (!board->tile_exists(victims_neighbor))
           break;
 
-        victim_occupant = board->get(victim).occupant;
+        victim_occupant = get_occupant(victim);
         if (victim_occupant != C::EMPTY) {
           found_victim = true;
           break;
@@ -118,28 +131,64 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
     // to exist.
 
     // Check if it's a valid attack...
-    let is_victim_white = board->get(victim).is_white();
+    let is_victim_white = (victim_occupant == C::WHITE ||
+                           victim_occupant == C::WHITE_KING);
     let can_attack = (is_white != is_victim_white);  // Must be different colors
     let is_victims_neighbor_empty =
-      (board->get(victims_neighbor).occupant == C::EMPTY);
+        (get_occupant(victims_neighbor) == C::EMPTY);
 
-    if (can_attack && is_victims_neighbor_empty)
-      // This is a valid attack. Add it to the list of legal moves...
-      result.push_back(victims_neighbor);
+    if (can_attack && is_victims_neighbor_empty) {
+      // This is a valid attack!
+      
+      // A linked list might be more efficient here but honestly I can't be
+      // bothered.
+      let new_pos = victims_neighbor;
+      var killed_list = newly_empty_tiles;  // Yep. Just copying the whole thing
+      killed_list.push_back(victim);
+      var followup_moves =
+        get_legal_attacks__impl(board, new_pos, is_white, is_king, killed_list);
+
+      // Put together the CheckersMove datastructure...
+      CheckersMove new_move;
+      new_move.origin = start_pos;
+      new_move.destination = victims_neighbor;
+      var &max_length = new_move.longest_attack_chain_length;  // Alias
+      max_length = 1;
+
+      for (var &followup : followup_moves) {
+        let new_length = followup.longest_attack_chain_length + 1;
+        if (new_length > max_length)
+          max_length = new_length;
+        
+        new_move.followup_attacks.push_back(move(followup));
+      }
+      
+      result.push_back(move(new_move));
+    }
   }
 
   return result;
 }
 
 
-static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i pos) {
+static List<CheckersMove> get_legal_attacks(const ABoard* board, Vec2i pos) {
+  let piece = board->get(pos);
+  let is_white = piece.is_white();
+  let is_king = piece.is_king();
+  return get_legal_attacks__impl(board, pos, is_white, is_king, {pos});
+}
+
+
+static List<CheckersMove> get_legal_normal_moves(
+      const ABoard* board,
+      Vec2i pos) {
   using C = CellOccupant;
 
   let piece = board->get(pos);
   let is_white = piece.is_white();
   let is_king = piece.is_king();
 
-  List<Vec2i> result;
+  List<CheckersMove> result;
   
   // For each direction...
   let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
@@ -156,7 +205,7 @@ static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i pos) {
 
     // If it's empty, this is a valid move...
     if (board->get(neighbor).occupant == C::EMPTY)
-      result.push_back(neighbor);
+      result.push_back(CheckersMove{pos, neighbor, 0, {}});
 
     // Unless we're a flying king, that's the only possible move in this
     // direction...
@@ -167,7 +216,7 @@ static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i pos) {
     var next_tile = neighbor + one_step[dir];
     while (board->tile_exists(next_tile)
            && board->get(next_tile).occupant == C::EMPTY) {
-      result.push_back(next_tile);
+      result.push_back(CheckersMove{pos, next_tile, 0, {}});
       next_tile += one_step[dir];
     }
   }
@@ -176,11 +225,39 @@ static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i pos) {
 }
 
 
+static void cull_illegal_moves__impl(
+    List<CheckersMove>* moves,
+    uint desired_length) {
+  if (moves->empty())
+    return;
+  
+  for (var iter = moves->begin(); iter != moves->end(); ) {
+    if (iter->longest_attack_chain_length < desired_length)
+      iter = moves->erase(iter);
+    else {
+      cull_illegal_moves__impl(&iter->followup_attacks, desired_length - 1);
+      ++iter;
+    }
+  }
+
+  // If the list of moves wasn't empty when we started, at least one move should
+  // survive the culling.
+  assert_(!moves->empty());
+}
+
+
+static void cull_illegal_moves(RoundStartReport& report) {
+  let longest = report.longest_available_attack_chain;
+  cull_illegal_moves__impl(&report.available_moves, longest);
+}
+
+
 RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
 # define CONTINUE return
   using C = CellOccupant;
   
-  RoundStartReport result;
+  RoundStartReport report;
+  var &longest_chain = report.longest_available_attack_chain;  // alias
   
   for_each_checkers_tile([&](uint x, uint y) {
     let piece = board.get(x,y);
@@ -188,38 +265,37 @@ RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
     // Count white and black pieces, and skip to the next tile if this isn't a
     // piece belonging to the current player...
     if (piece.is_white()) {
-      result.white_count += 1;
+      report.white_count += 1;
       if (!is_player_white)
         CONTINUE;
     } else if (piece.occupant != C::EMPTY) {
-      result.black_count += 1;
+      report.black_count += 1;
       if (is_player_white)
         CONTINUE;
     } else CONTINUE;
 
-    // Check if this piece can move or attack...
-    // This implementation is not very efficient, but it works!
+    // Create a list of possible moves and attacks...
+    // This way of doing things is not very efficient, but it works!
     let pos = Vec2i(x,y);
     
-    if (!get_legal_attacks(this, pos).empty()) {
-      result.attackers.push_back(pos);
-      result.can_move = true;
-    } else if (!result.can_move &&
-        !get_legal_normal_moves(this, pos).empty()) {
-      result.can_move = true;
+    for (var &attack : get_legal_attacks(this, pos)) {
+      let chain_length = attack.longest_attack_chain_length;
+      if (chain_length > longest_chain)
+        longest_chain = chain_length;
+      
+      report.available_moves.push_back(move(attack));
     }
+    
+    for (var &normal_move : get_legal_normal_moves(this, pos))
+      report.available_moves.push_back(move(normal_move));
   });
 
-  return result;
+  cull_illegal_moves(report);
+
+  return report;
 # undef CONTINUE
 }
 
-List<Vec2i> ABoard::get_legal_moves(Vec2i pos, bool can_player_attack) const {
-  if (can_player_attack)
-    return get_legal_attacks(this, pos);
-  else
-    return get_legal_normal_moves(this, pos);
-}
 
 void ABoard::move_piece(Vec2i old_pos, Vec2i new_pos) {
   let &new_tile = get(new_pos);

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "../util.hpp"
+#include "CheckersAgain/map/Board.h"
 #include "CheckersPlayer.generated.h"
 
 UCLASS()
@@ -16,7 +17,8 @@ public:
   Vec2i held_piece;
   
   ACheckersPlayer();
-
+  
+  void on_turn_started();
   UFUNCTION()
   void on_piece_clicked(AActor* piece, FKey button);
   UFUNCTION()
@@ -30,12 +32,9 @@ public:
   void toggle_piece_held(Vec2i piece); // Grab the piece or drop it if it's held
   void grab_piece(Vec2i piece);
   void drop_piece();
-
-  void commit_move(Vec2i piece, Vec2i destination);
+  void do_move(const CheckersMove& move);
 
 private:
   class ACheckersState* get_gamestate();
-  List<Vec2i> cached_legal_moves;  // Updated upon grabbing a piece.
-  // Note: Make sure that the legal moves are properly recached if it's ever
-  // possible that a piece is moved and still grabbed afterwards.
+  const List<CheckersMove>* cached_moves = nullptr;
 };

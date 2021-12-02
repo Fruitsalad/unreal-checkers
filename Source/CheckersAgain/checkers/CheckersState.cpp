@@ -2,6 +2,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "../map/Board.h"
 #include "../map/GridComp.h"
+#include "CheckersAgain/player/CheckersPlayer.h"
 
 
 ACheckersState::ACheckersState() : board(nullptr) {
@@ -23,8 +24,9 @@ void ACheckersState::BeginPlay() {
   // Initialize...
   board->visualizer = this;
   board->init();
-  board->prepare_default_board(board->tilesWide);
+  board->prepare_default_board(board->tiles_wide);
   spawn_pieces();
+  start_turn();
 }
 
 void ACheckersState::on_piece_killed(Vec2i piece) {
@@ -36,9 +38,6 @@ void ACheckersState::on_piece_killed(Vec2i piece) {
 void ACheckersState::on_piece_promoted(Vec2i piece) {
   var actor = piece_actors.at(piece);
   actor->SetKing(true);
-
-  FIntVector2 y;
-  FIntPoint x;
 }
 
 void ACheckersState::on_piece_moved(Vec2i piece, Vec2i new_position) {
@@ -84,7 +83,7 @@ void ACheckersState::spawn_pieces() {
 // This function only actually kills opponents, but I like this name better
 // than the correct name.
 static void kill_everything_in_your_path(ABoard* board,
-        Vec2i start, Vec2i destination, bool should_kill_white) {
+        Vec2i origin, Vec2i destination, bool should_kill_white) {
   using C = CellOccupant;
   
   // Helper functions...
@@ -98,21 +97,21 @@ static void kill_everything_in_your_path(ABoard* board,
   };
   
   // Prepare...
-  let diff = destination - start;
+  let diff = destination - origin;
   let step_x = ((diff.X > 0)? 1 : -1);
   let step_y = ((diff.Y > 0)? 1 : -1);
   let step = Vec2i(step_x, step_y);
-  let steps = abs(diff.X);
+  let steps_count = abs(diff.X);
 
   // Kill all opponents on the path...
-  var cell = start;
-  for (var i = 0; i < steps; i += 1) {
+  var cell = origin;
+  for (var i = 0; i < steps_count; i += 1) {
     maybe_kill_opponent(cell);
     cell += step;
   }
 }
 
-void ACheckersState::commit_move(Vec2i origin, Vec2i destination) {
+void ACheckersState::move(Vec2i origin, Vec2i destination) {
   // We still don't know what kind of move we're making, but instead of
   // actually being smart, we just kill every opponent in the path between the
   // piece and its destination. This behavior happens to work for every kind of
@@ -121,39 +120,59 @@ void ACheckersState::commit_move(Vec2i origin, Vec2i destination) {
   assert_msg(origin != destination, "That's not a move, dingus");
 
   has_already_moved = true;
+  piece_being_moved = destination;
 
   let piece = board->get(origin);
   let is_white = piece.is_white();
-  let is_king = piece.is_king();
 
   kill_everything_in_your_path(board, origin, destination, !is_white);
   board->move_piece(origin, destination);
-  
-  let promotion_row = (is_white? (board->tilesWide - 1) : 0);
-  if (!is_king && destination.Y == promotion_row)
-    board->promote_piece(destination);
-
-  end_turn();
 }
+
+void ACheckersState::maybe_promote(Vec2i pos) {
+  let piece = board->get(pos);
+  let promotion_row = (piece.is_white()? (board->tiles_wide - 1) : 0);
+  
+  if (!piece.is_king() && pos.Y == promotion_row)
+    board->promote_piece(pos);
+}
+
 
 void ACheckersState::end_turn() {
   is_whites_turn = !is_whites_turn;
-  
+  start_turn();
+}
+
+void ACheckersState::start_turn() {
   let report = board->get_roundstart_report(is_whites_turn);
   
   if (report.white_count == 0)
     end_game(false);
   else if (report.black_count == 0)
     end_game(true);
-  else if (!report.can_move)
+  else if (report.available_moves.empty())
     end_game(!is_whites_turn);
   
-  can_player_attack = !report.attackers.empty();
+  longest_available_attack_chain = report.longest_available_attack_chain;
+  available_moves = std::move(report.available_moves);
   has_already_moved = false;
+
+  // Inform all player controllers about the new turn...
+  TArray<APlayerController*> player_controllers;
+  GEngine->GetAllLocalPlayerControllers(player_controllers);
+
+  for (var some_kind_of_player_controller : player_controllers) {
+    var player = Cast<ACheckersPlayer>(some_kind_of_player_controller);
+    if (player == nullptr)
+      continue;  // Not an ACheckersPlayer
+
+    player->on_turn_started();
+  }
 }
 
 void ACheckersState::end_game(bool did_white_win) {
   print_to_screen("FINALLY THE GAME IS OVER!!!", Color::Blue, 50);
+  // Cause for celebration because I hate checkers.
   if (did_white_win)
     print_to_screen("WHITE WON!!!", Color::Blue, 50);
   else

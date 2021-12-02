@@ -37,6 +37,12 @@ void ACheckersPlayer::make_board_clickable() {
 }
 
 
+void ACheckersPlayer::on_turn_started() {
+  drop_piece();
+  cached_moves = &get_gamestate()->available_moves;
+  is_it_my_turn = true;
+}
+
 void ACheckersPlayer::on_piece_clicked(AActor* piece, FKey button) {
   let state = get_gamestate();
 
@@ -65,15 +71,15 @@ void ACheckersPlayer::on_piece_clicked(AActor* piece, FKey button) {
 void ACheckersPlayer::on_board_clicked(AActor* some_board_mesh, FKey button) {
   let state = get_gamestate();
   
-  if (!is_it_my_turn || state->has_already_moved)
+  if (!is_it_my_turn)
     return;
 
-  // Helper functions... (boring)
-  fn is_legal_move = [&](Vec2i destination) {
-    for (let &move : cached_legal_moves)
-      if (move == destination)
-        return true;
-    return false;
+  // Helper functions...
+  fn find_legal_move = [&](Vec2i origin, Vec2i dest) -> const CheckersMove* {
+    for (let &move : *cached_moves)
+      if (move.origin == origin && move.destination == dest)
+        return &move;
+    return nullptr;
   };
 
   // Calculate what cell was clicked...
@@ -94,18 +100,29 @@ void ACheckersPlayer::on_board_clicked(AActor* some_board_mesh, FKey button) {
     return;
 
   // Several possibilities:
-  // - Pick up a piece... (or drop it if we're already holding it)
   if (state->board->cell_has_piece(cell)) {
-    bool piece_belongs_to_current_player =
+    // - Pick up a piece... (or drop it if we're already holding it)
+    if (!state->has_already_moved) {
+      bool piece_belongs_to_current_player =
         (state->board->get(cell).is_white() == state->is_whites_turn);
-    if (piece_belongs_to_current_player)
+    
+      if (piece_belongs_to_current_player)
+        toggle_piece_held(cell);
+      
+    // - If you already moved, you can still pick up or drop the piece you moved
+    //   It doesn't do anything useful, but you can do it nonetheless.
+    } else if (cell == state->piece_being_moved) {
       toggle_piece_held(cell);
+    }
     
   // - Move the held piece...
   } else if (is_piece_held) {
-    let &destination = cell;  // Alias for clarity
-    if (is_legal_move(destination))
-      commit_move(held_piece, destination);
+    let &origin = held_piece;  // Renaming stuff for extra clarity
+    let &destination = cell;
+    let move = find_legal_move(origin, destination);
+    
+    if (move != nullptr)
+      do_move(*move);
   }
 }
 
@@ -123,6 +140,9 @@ void ACheckersPlayer::grab_piece(Vec2i piece) {
   
   var state = get_gamestate();
   
+  assert_msg(!state->has_already_moved || piece == state->piece_being_moved,
+    "After the first move, it is only allowed to continue with the same piece");
+  
   var maybe_result = state->piece_actors.find(piece);
   if (!was_found(maybe_result, state->piece_actors))
     PRINT_AND_THROW("Piece actor not found for "+$(piece))
@@ -131,10 +151,6 @@ void ACheckersPlayer::grab_piece(Vec2i piece) {
   piece_actor->SetSelected(true);
   is_piece_held = true;
   held_piece = piece;
-
-  // Update the cached legal moves...
-  cached_legal_moves =
-    state->board->get_legal_moves(piece, state->can_player_attack);
 }
 
 void ACheckersPlayer::drop_piece() {
@@ -147,10 +163,16 @@ void ACheckersPlayer::drop_piece() {
   is_piece_held = false;
 }
 
-void ACheckersPlayer::commit_move(Vec2i piece, Vec2i destination) {
+void ACheckersPlayer::do_move(const CheckersMove& move) {
   var state = get_gamestate();
-  drop_piece();
-  state->commit_move(piece, destination);
+  state->move(move.origin, move.destination);
+  held_piece = move.destination;
+  cached_moves = &move.followup_attacks;
+
+  if (cached_moves->empty()) {
+    state->maybe_promote(move.destination);
+    state->end_turn();
+  }
 }
 
 ACheckersState* ACheckersPlayer::get_gamestate() {
