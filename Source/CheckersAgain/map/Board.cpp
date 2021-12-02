@@ -1,19 +1,7 @@
 #include "Board.h"
-#include "GridComp.h"
+
 #include "BoardVisualizer.h"
-
-
-
-// For some reason Unreal does not provide these by default.
-static Vec2i operator + (const Vec2i& a, const Vec2i& b) {
-  return {a.X + b.X, a.Y + b.Y};
-}
-
-static Vec2i& operator += (Vec2i& a, const Vec2i& b) {
-  a.X += b.X;
-  a.Y += b.Y;
-  return a;
-}
+#include "GridComp.h"
 
 
 
@@ -70,17 +58,17 @@ void ABoard::prepare_default_board(uint new_width) {
 
 
 
-static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i piece) {
+static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i pos) {
   using C = CellOccupant;
 
   List<Vec2i> result;
 
-  let occupant = board->get(piece).occupant;
-  let is_white = (occupant == C::WHITE || occupant == C::WHITE_KING);
-  let is_king = (occupant == C::WHITE_KING || occupant == C::BLACK_KING);
+  let piece = board->get(pos);
+  let is_white = piece.is_white();
+  let is_king = piece.is_king();
   
   // For each direction...
-  let dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
+  let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
   let dir_count = (is_king? king_dir_count : normal_dir_count); 
   
   for (uint i = 0; i < dir_count; i++) {
@@ -88,12 +76,12 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i piece) {
 
     // Get the victim and the victim's neighbor...
     // The victim is the piece that this attack will kill.
-    var victim = piece + one_step[dir];
+    var victim = pos + one_step[dir];
     // The victim's neighbor is the tile that we will move to with this attack.
     var victims_neighbor = victim + one_step[dir];
 
-    // Check whether the neighbors exist, so we don't go over the edge of the
-    // playing board... (if the neighbor's neighbor exists, the neighbor also
+    // Check whether the neighbor exists, so we don't go over the edge of the
+    // playing board... (if the victim's neighbor exists, the victim also
     // exists)
     if (!board->tile_exists(victims_neighbor))
       continue; 
@@ -129,40 +117,42 @@ static List<Vec2i> get_legal_attacks(const ABoard* board, Vec2i piece) {
     // We now have a non-empty victim, and the victim's neighbor is known
     // to exist.
 
-    // If the neighbor can be attacked...
-    let is_neighbor_black = (victim_occupant == C::BLACK ||
-                             victim_occupant == C::BLACK_KING);
+    // Check if it's a valid attack...
+    let is_victim_white = board->get(victim).is_white();
+    let can_attack = (is_white != is_victim_white);  // Must be different colors
+    let is_victims_neighbor_empty =
+      (board->get(victims_neighbor).occupant == C::EMPTY);
 
-    if (is_white && is_neighbor_black || !is_white && !is_neighbor_black) {
-      // And the neighbor's neighbor is empty...
-      if (board->get(victims_neighbor).occupant == C::EMPTY)
-        // Then this is a valid attack.
-        result.push_back(victims_neighbor);
-    }
+    if (can_attack && is_victims_neighbor_empty)
+      // This is a valid attack. Add it to the list of legal moves...
+      result.push_back(victims_neighbor);
   }
 
   return result;
 }
 
 
-static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i piece) {
+static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i pos) {
   using C = CellOccupant;
 
-  let occupant = board->get(piece).occupant;
-  let is_white = (occupant == C::WHITE || occupant == C::WHITE_KING);
-  let is_king = (occupant == C::WHITE_KING || occupant == C::BLACK_KING);
+  let piece = board->get(pos);
+  let is_white = piece.is_white();
+  let is_king = piece.is_king();
 
   List<Vec2i> result;
   
   // For each direction...
-  let dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
+  let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
   let dir_count = (is_king? king_dir_count : normal_dir_count); 
   
   for (uint i = 0; i < dir_count; i++) {
     let dir = dirs[i];
 
     // Get the neighbor...
-    let neighbor = piece + one_step[dir];
+    let neighbor = pos + one_step[dir];
+
+    if (!board->tile_exists(neighbor))
+      continue;
 
     // If it's empty, this is a valid move...
     if (board->get(neighbor).occupant == C::EMPTY)
@@ -186,36 +176,36 @@ static List<Vec2i> get_legal_normal_moves(const ABoard* board, Vec2i piece) {
 }
 
 
-RoundStartReport ABoard::get_roundstart_report(bool is_white) const {
+RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
 # define CONTINUE return
   using C = CellOccupant;
   
   RoundStartReport result;
   
   for_each_checkers_tile([&](uint x, uint y) {
-    let occupant = board.get(x,y).occupant;
+    let piece = board.get(x,y);
 
     // Count white and black pieces, and skip to the next tile if this isn't a
     // piece belonging to the current player...
-    if (occupant == C::WHITE) {
+    if (piece.is_white()) {
       result.white_count += 1;
-      if (!is_white)
+      if (!is_player_white)
         CONTINUE;
-    } else if (occupant == C::BLACK) {
+    } else if (piece.occupant != C::EMPTY) {
       result.black_count += 1;
-      if (is_white)
+      if (is_player_white)
         CONTINUE;
     } else CONTINUE;
 
     // Check if this piece can move or attack...
     // This implementation is not very efficient, but it works!
-    let piece = Vec2i(x,y);
+    let pos = Vec2i(x,y);
     
-    if (!get_legal_attacks(this, piece).empty()) {
-      result.attackers.push_back(piece);
+    if (!get_legal_attacks(this, pos).empty()) {
+      result.attackers.push_back(pos);
       result.can_move = true;
     } else if (!result.can_move &&
-        !get_legal_normal_moves(this, piece).empty()) {
+        !get_legal_normal_moves(this, pos).empty()) {
       result.can_move = true;
     }
   });
@@ -224,34 +214,48 @@ RoundStartReport ABoard::get_roundstart_report(bool is_white) const {
 # undef CONTINUE
 }
 
-List<Vec2i> ABoard::get_legal_moves(Vec2i piece, bool can_player_attack) const {
+List<Vec2i> ABoard::get_legal_moves(Vec2i pos, bool can_player_attack) const {
   if (can_player_attack)
-    return get_legal_attacks(this, piece);
+    return get_legal_attacks(this, pos);
   else
-    return get_legal_normal_moves(this, piece);
+    return get_legal_normal_moves(this, pos);
 }
 
-void ABoard::move_piece(Vec2i piece, Vec2i new_pos) {
+void ABoard::move_piece(Vec2i old_pos, Vec2i new_pos) {
   let &new_tile = get(new_pos);
-  var &old_tile = get(piece);
+  var &old_tile = get(old_pos);
   assert_(new_tile.occupant == CellOccupant::EMPTY);
   get(new_pos).occupant = old_tile.occupant;
   old_tile.occupant = CellOccupant::EMPTY;
+
+  if (visualizer)
+    visualizer->on_piece_moved(old_pos, new_pos);
 }
 
-void ABoard::kill_piece(Vec2i piece) {
-  get(piece).occupant = CellOccupant::EMPTY;
+void ABoard::kill_piece(Vec2i pos) {
+  get(pos).occupant = CellOccupant::EMPTY;
+
+  if (visualizer)
+    visualizer->on_piece_killed(pos);
 }
 
-void ABoard::promote_piece(Vec2i piece) {
-  var &tile = get(piece);
+void ABoard::promote_piece(Vec2i pos) {
+  var &tile = get(pos);
   assert_(tile.occupant != CellOccupant::EMPTY);
+  
   if (tile.occupant == CellOccupant::WHITE)
     tile.occupant = CellOccupant::WHITE_KING;
   else if (tile.occupant == CellOccupant::BLACK)
     tile.occupant = CellOccupant::BLACK_KING;
+  else return;
+
+  if (visualizer)
+    visualizer->on_piece_promoted(pos);
 }
 
+bool ABoard::cell_has_piece(Vec2i pos) const {
+  return get(pos).occupant != CellOccupant::EMPTY;
+}
 
 
 

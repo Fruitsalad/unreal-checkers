@@ -4,4 +4,5 @@
 
 ACheckersAgainGameModeBase::ACheckersAgainGameModeBase() {
   PlayerControllerClass = ACheckersPlayer::StaticClass();
+  DefaultPawnClass = get_class<APawn>(TEXT("/Game/Objects/Player"));
 }

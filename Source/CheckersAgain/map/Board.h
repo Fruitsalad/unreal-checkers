@@ -31,6 +31,16 @@ struct RoundStartReport {
 
 struct GridCell {
   CellOccupant occupant;
+
+  bool is_white() const {
+    return occupant == CellOccupant::WHITE ||
+           occupant == CellOccupant::WHITE_KING;
+  }
+
+  bool is_king() const {
+    return occupant == CellOccupant::WHITE_KING ||
+           occupant == CellOccupant::BLACK_KING;
+  }
 };
 
 
@@ -55,11 +65,12 @@ UCLASS()
 class CHECKERSAGAIN_API ABoard : public AActor {
   GENERATED_BODY()
 public:
-  UPROPERTY(VisibleAnywhere, Category=Grid) class UGridComp* grid;
-  UPROPERTY(EditAnywhere, Category=Grid) unsigned tilesWide = 8;
-  //UPROPERTY(EditAnywhere, Category=Checkers)
-  //TScriptInterface<class IBoardVisualizer> visualizer;
+  UPROPERTY(VisibleAnywhere, Category=Grid)
+  class UGridComp* grid;
+  UPROPERTY(EditAnywhere, Category=Grid)
+  unsigned tilesWide = 8;
   
+  struct I_BoardVisualizer* visualizer = nullptr;
 	Array2D<GridCell> board;
   
   ABoard();
@@ -75,11 +86,12 @@ public:
   bool tile_exists(Vec2i pos) const;
   void prepare_empty_board(uint new_width);
   void prepare_default_board(uint new_width);
-  RoundStartReport get_roundstart_report(bool is_white) const;
-  List<Vec2i> get_legal_moves(Vec2i piece, bool can_player_attack) const;
-  void move_piece(Vec2i piece, Vec2i new_pos);  // This function is not smart.
-  void kill_piece(Vec2i piece);
-  void promote_piece(Vec2i piece);
+  RoundStartReport get_roundstart_report(bool is_player_white) const;
+  List<Vec2i> get_legal_moves(Vec2i pos, bool can_player_attack) const;
+  void move_piece(Vec2i old_pos, Vec2i new_pos);  // This function is not smart.
+  void kill_piece(Vec2i pos);
+  void promote_piece(Vec2i pos);
+  bool cell_has_piece(Vec2i pos) const;
 };
 
 

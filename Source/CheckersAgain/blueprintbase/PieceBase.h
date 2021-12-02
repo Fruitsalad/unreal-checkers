@@ -14,4 +14,6 @@ public:
   void SetKing(bool IsKing);
   UFUNCTION(BlueprintImplementableEvent)
   void SetColor(bool IsWhite);
+  UFUNCTION(BlueprintImplementableEvent)
+  void SetSelected(bool IsSelected);
 };

@@ -24,12 +24,21 @@ Vec2i UGridComp::calc_nearest_cell(Vec world_pos) const {
 	return {x, y};
 }
 
+Plane UGridComp::get_grid_plane() const {
+	// This is not the most efficient implementation.
+	let transform = GetOwner()->GetActorTransform();
+	let plane = Plane(Vec::UpVector, 0);
+	return plane.TransformBy(transform.ToMatrixWithScale());
+}
+
 bool UGridComp::intersects_ray(Ray ray, Vec2i* result_cell) const {
+	let grid_plane = get_grid_plane();
 	let plane_normal = grid_plane.GetNormal();
 
 	// Check if the ray and the plane are parallel...
 	let direction_onto_normal = dot(ray.Direction, plane_normal);
-	if (direction_onto_normal <= FLT_EPSILON)
+	if (direction_onto_normal <= FLT_EPSILON
+		&& direction_onto_normal >= FLT_EPSILON)
 		return false;
 
 	// Calculate where a *line* would intersect with the plane...
