@@ -110,7 +110,7 @@ static List<CheckersMove> get_legal_attacks__impl(
     var followup_moves = List<CheckersMove>();
     let can_have_followup_moves =
         rules.can_promote_only_at_end_of_turn ||
-        !rules.does_promotion_end_chain ||
+        rules.can_continue_after_promotion ||
         !will_be_promoted(new_pos);
 
     if (can_have_followup_moves)

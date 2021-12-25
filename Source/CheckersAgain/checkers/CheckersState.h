@@ -13,8 +13,13 @@ class CHECKERSAGAIN_API ACheckersState
                         : public AGameStateBase,
                           public I_BoardVisualizer {
   GENERATED_BODY()
-  
-  UClass* piece_class;
+
+  UPROPERTY() UClass* piece_class;
+	UPROPERTY() UStaticMesh* board_tile_mesh;
+  UPROPERTY() UStaticMesh* board_border_mesh;
+  UPROPERTY() UStaticMesh* board_corner_mesh;
+  UPROPERTY() UMaterialInstance* white_tile_material;
+  UPROPERTY() UMaterialInstance* black_tile_material;
 public:
   class ABoard* board;
   Map<Vec2i, APieceBase*> piece_actors;
@@ -36,6 +41,7 @@ public:
   
   void spawn_pieces();
   void spawn_board();
+  void spawn_sides_of_board();
 
   /** This function automagically guesses what kind of move it is. */
   void move(Vec2i origin, Vec2i destination);

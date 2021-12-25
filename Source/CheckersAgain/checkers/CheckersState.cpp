@@ -7,27 +7,34 @@
 
 
 ACheckersState::ACheckersState() : board(nullptr) {
-  static let PIECE_CLASS = get_class<AActor>(TEXT("/Game/Objects/Piece"));
+  static let TILE_MESH = get_mesh(TEXT("/Engine/BasicShapes/Plane"));
+  static let BORDER_MESH = get_mesh(TEXT("/Game/Objects/Border"));
+  static let CORNER_MESH = get_mesh(TEXT("/Game/Objects/Corner"));
+  static let PIECE_CLASS = get_class(TEXT("/Game/Objects/Piece"));
+  static let WHITE_MAT = get_material_inst(TEXT("/Game/Materials/WhiteRamp"));
+  static let BLACK_MAT = get_material_inst(TEXT("/Game/Materials/BrownRamp"));
+
+  board_tile_mesh = TILE_MESH;
+  board_border_mesh = BORDER_MESH;
+  board_corner_mesh = CORNER_MESH;
   piece_class = PIECE_CLASS;
+  white_tile_material = WHITE_MAT;
+  black_tile_material = BLACK_MAT;
   rules = INTERNATIONAL_CHECKERS;
-  assert_(piece_class != nullptr);
 }
 
 void ACheckersState::BeginPlay() {
   print_to_screen("Checkers state initialized");
   var world = GetWorld();
-  
-  // Find the board...
-  var board_actor =
-    UGameplayStatics::GetActorOfClass(world, ABoard::StaticClass());
-  board = Cast<ABoard>(board_actor);
+
+  board = get_actor_of_class<ABoard>(world);
   assert_msg(board != nullptr, "There must be an ABoard in the world.");
-  
-  // Initialize...
   board->visualizer = this;
   board->init();
   board->prepare_default_board(rules.board_width);
+
   spawn_pieces();
+  spawn_board();
   start_turn();
 }
 
@@ -63,36 +70,97 @@ void ACheckersState::spawn_pieces() {
   let rotation = board->GetActorRotation();
   
   board->for_each_checkers_tile([&](uint x, uint y) {
-    let occupant = board->board.get(x,y).occupant;
-    if (occupant == C::EMPTY)
+    let piece = board->board.get(x,y);
+    if (piece.occupant == C::EMPTY)
       CONTINUE;
 
     let location = board->grid->calc_cell_center(x, y);
-    var new_actor = GetWorld()->SpawnActor(piece_class, &location, &rotation);
-    var piece = Cast<APieceBase>(new_actor);
+    var new_actor_ = GetWorld()->SpawnActor(piece_class, &location, &rotation);
+    var new_actor = Cast<APieceBase>(new_actor_);
 
-    bool is_white = (occupant == C::WHITE || occupant == C::WHITE_KING);
-    bool is_king = (occupant == C::WHITE_KING || occupant == C::BLACK_KING);
-    piece->SetColor(is_white);
-    piece->SetKing(is_king);
-    piece->SetSelected(false);
+    new_actor->SetColor(piece.is_white());
+    new_actor->SetKing(piece.is_king());
+    new_actor->SetSelected(false);
 
-    piece_actors[Vec2i(x,y)] = piece;
+    piece_actors[Vec2i(x,y)] = new_actor;
   });
 }
 
 void ACheckersState::spawn_board() {
   var world = GetWorld();
   let rotation = board->GetActorRotation();
-  
+
+  spawn_sides_of_board();
+
+  // For each tile... (including the white tiles)
   for (uint y = 0; y < board->tiles_wide; y++) {
     for (uint x = 0; x < board->tiles_wide; x++) {
-      bool is_tile_black = (is_even(x) != is_even(y));
+
+      // Make an actor for the tile...
       let location = board->grid->calc_cell_center(x, y);
-      //var new_actor = world->SpawnActor(board_tile_class, &location, &rotation);
-      //AStaticMeshActor* new_mesh = Cast<AStaticMeshActor>(new_actor);
-      //new_mesh->
+      bool is_tile_black = (is_even(x) != is_even(y));
+      var material = (is_tile_black? black_tile_material : white_tile_material);
+      var new_actor =
+        spawn_static_mesh(world, board_tile_mesh, location, rotation, material);
+
+      // Give it a tag so CheckersPlayer will know that it can be clicked...
+      new_actor->Tags.Add(TEXT("BOARD"));
     }
+  }
+}
+
+void ACheckersState::spawn_sides_of_board() {
+  // Hardcoding the offset for the meshes isn't the best but anything else is
+  // probably overengineering. I just want to get this game done at this point.
+  static let OFFSET = Vec(0, 0, -10);
+  static let BORDER_MESH_YAW = Rot(0, 90, 0);
+
+  var world = GetWorld();
+  let board_rotation = board->GetActorRotation();
+  let w = rules.board_width;
+
+  static let CORNER_TILES_SIZE = 4;
+  Vec2i corner_tiles[CORNER_TILES_SIZE] = {
+    Vec2i(-1, w),
+    Vec2i(-1, -1),
+    Vec2i(w, -1),
+    Vec2i(w, w)
+  };
+
+  // For each of the four sides...
+  Vec corner_loc =
+      board->grid->calc_cell_center(corner_tiles[0]) + OFFSET;
+  for (uint i = 0; i < CORNER_TILES_SIZE; i++) {
+
+    // Calculate the rotation...
+    let yaw = i * 90;  // Unreal uses degrees instead of radians apparently
+    let rotation = board_rotation + Rot(0, yaw, 0);
+
+    // Calculate the world position of the border mesh...
+    // (It should be exactly in the middle of this side)
+    let next_i = (i + 1) % CORNER_TILES_SIZE;
+    Vec next_corner_loc =
+        board->grid->calc_cell_center(corner_tiles[next_i]) + OFFSET;
+    Vec border_loc = (next_corner_loc - corner_loc) / 2.f + corner_loc;
+
+    // Spawn in the meshes... (one corner & one straight border)
+    spawn_static_mesh(
+        world, board_corner_mesh,
+        corner_loc, rotation, black_tile_material
+    );
+    var border = spawn_static_mesh(
+        world, board_border_mesh,
+        border_loc, rotation + BORDER_MESH_YAW, black_tile_material
+    );
+
+    // Scale the straight border mesh so it's as wide as the playing area...
+    var transform = border->GetActorTransform();
+    transform.SetScale3D(Vec(rules.board_width, 1, 1));
+    border->SetActorTransform(transform);
+
+    // We carry next_corner_loc over to corner_loc for efficiency, otherwise we
+    // would calculate it twice.
+    corner_loc = next_corner_loc;
   }
 }
 
