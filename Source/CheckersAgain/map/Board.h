@@ -74,8 +74,8 @@ inline const uint total_dir_count = 4;
 
 template<class Function>
 void for_each_direction(Function do_something) {
-  for (Direction dir = 0; dir < 4; dir++)
-    do_something(dir);
+  for (uint dir = 0; dir < 4; dir++)
+    do_something(Direction(dir));
 }
 
 

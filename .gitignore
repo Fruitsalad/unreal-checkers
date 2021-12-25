@@ -1,7 +1,20 @@
+# Keep most of the generated files out of the Git repository
 Binaries
 DerivedDataCache
 Intermediate
 Saved
+/Content/StarterContent/
+/Plugins/Developer/RiderLink/
+
+# CMakeLists.txt and Makefile contained some hardcoded paths, so I excluded them
+# from Git because they would be worthless on anyone else's computer anyways.
+CMakeLists.txt
+Makefile
+
+# Keep the root directory from getting cluttered with all of this stuff.
+# It's a mix of generated build files and IDE specific settings.
+.idea
+.kdev4
 .vscode
 .vs
 *.VC.db
@@ -10,7 +23,12 @@ Saved
 *.sdf
 *.sln
 *.suo
+*.pri
 *.xcodeproj
 *.xcworkspace
-/Content/StarterContent/
-/Plugins/Developer/RiderLink/
+CheckersAgain.code-workspace
+CheckersAgain.kdev4
+CheckersAgain.pro
+CheckersAgain.workspace
+CheckersAgainCodeCompletionFolders.txt
+CheckersAgainCodeLitePreProcessor.txt

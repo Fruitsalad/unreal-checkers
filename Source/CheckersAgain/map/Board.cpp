@@ -132,7 +132,7 @@ static List<CheckersMove> get_legal_attacks__impl(
       new_move.followup_attacks += move(followup);
     }
 
-    return move(new_move);
+    return new_move;
   };
   
   
