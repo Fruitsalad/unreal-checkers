@@ -3,11 +3,13 @@
 #include "../map/Board.h"
 #include "../map/GridComp.h"
 #include "CheckersAgain/player/CheckersPlayer.h"
+#include "Engine/StaticMeshActor.h"
 
 
 ACheckersState::ACheckersState() : board(nullptr) {
   static let PIECE_CLASS = get_class<AActor>(TEXT("/Game/Objects/Piece"));
   piece_class = PIECE_CLASS;
+  rules = INTERNATIONAL_CHECKERS;
   assert_(piece_class != nullptr);
 }
 
@@ -24,7 +26,7 @@ void ACheckersState::BeginPlay() {
   // Initialize...
   board->visualizer = this;
   board->init();
-  board->prepare_default_board(board->tiles_wide);
+  board->prepare_default_board(rules.board_width);
   spawn_pieces();
   start_turn();
 }
@@ -79,11 +81,30 @@ void ACheckersState::spawn_pieces() {
   });
 }
 
+void ACheckersState::spawn_board() {
+  var world = GetWorld();
+  let rotation = board->GetActorRotation();
+  
+  for (uint y = 0; y < board->tiles_wide; y++) {
+    for (uint x = 0; x < board->tiles_wide; x++) {
+      bool is_tile_black = (is_even(x) != is_even(y));
+      let location = board->grid->calc_cell_center(x, y);
+      //var new_actor = world->SpawnActor(board_tile_class, &location, &rotation);
+      //AStaticMeshActor* new_mesh = Cast<AStaticMeshActor>(new_actor);
+      //new_mesh->
+    }
+  }
+}
+
+
 
 // This function only actually kills opponents, but I like this name better
 // than the correct name.
-static void kill_everything_in_your_path(ABoard* board,
-        Vec2i origin, Vec2i destination, bool should_kill_white) {
+static void kill_everything_in_your_path(
+      ABoard* board,
+      Vec2i origin,
+      Vec2i destination,
+      bool should_kill_white) {
   using C = CellOccupant;
   
   // Helper functions...
@@ -144,7 +165,7 @@ void ACheckersState::end_turn() {
 }
 
 void ACheckersState::start_turn() {
-  let report = board->get_roundstart_report(is_whites_turn);
+  let report = board->get_roundstart_report(is_whites_turn, rules);
   
   if (report.white_count == 0)
     end_game(false);

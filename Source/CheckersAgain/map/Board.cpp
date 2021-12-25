@@ -58,32 +58,91 @@ void ABoard::prepare_default_board(uint new_width) {
 
 
 static List<CheckersMove> get_legal_attacks__impl(
-    const ABoard* board, Vec2i start_pos, bool is_white, bool is_king,
-    const List<Vec2i>& newly_empty_tiles) {
+      const ABoard* board,
+      Vec2i start_pos,
+      bool is_white,
+      bool is_king,
+      const List<Vec2i>& newly_empty_tiles,
+      const CheckersRules& rules) {
   // This function is recursive because when we find a valid attack, we need
   // to see if we can find valid follow-up attacks. It's easiest to do that
   // with a recursive function.
   
   using C = CellOccupant;
+  
+  List<CheckersMove> result;
+  
 
+  // Helper functions... (boring)
+  
+  let killed_piece_type =
+    (rules.can_killed_piece_block_further_attacks? C::TOMBSTONE : C::EMPTY);
 
   fn get_occupant = [&](Vec2i tile) -> CellOccupant {
     // For follow-up attacks, we want to make sure we're not trying to kill the
     // same piece twice.
     for (let &newly_empty_tile : newly_empty_tiles)
       if (newly_empty_tile == tile)
-        return CellOccupant::EMPTY;
+        return killed_piece_type;
 
     return board->get(tile).occupant;
   };
+
+
+  fn will_be_promoted = [&](Vec2i position) {
+    let last_row = (is_white? (board->tiles_wide - 1) : 0);
+    return !is_king && position.Y == last_row;
+  };
+
+
+  // This function creates a fully filled out CheckersMove from two coordinates
+  // that are already known to be a valid attack.
+  fn finalize_attack = [&](Vec2i victim, Vec2i new_pos) -> CheckersMove {
+    // Update the list of pieces that will be killed by this chain of attacks...
+    // A specialized linked list might be more efficient here but honestly I
+    // can't be bothered. We'll just copy newly_empty_tiles instead.
+    var killed_list = newly_empty_tiles;
+    killed_list += victim;
+
+    // Create the list of moves that can follow this attack...
+    // If a normal piece enters the last row and can be promoted, then that
+    // prevents further attacks in some rulesets.
+    var followup_moves = List<CheckersMove>();
+    let can_have_followup_moves =
+        rules.can_promote_only_at_end_of_turn ||
+        !rules.does_promotion_end_chain ||
+        !will_be_promoted(new_pos);
+
+    if (can_have_followup_moves)
+      followup_moves = get_legal_attacks__impl(board, new_pos, is_white,
+                                               is_king, killed_list, rules);
+
+    // Put together the CheckersMove datastructure...
+    CheckersMove new_move;
+    new_move.origin = start_pos;
+    new_move.destination = new_pos;
+    var &max_length = new_move.longest_attack_chain_length;  // Short alias
+    max_length = 1;
+
+    for (var &followup : followup_moves) {
+      let new_length = followup.longest_attack_chain_length + 1;  // Short alias
+      if (new_length > max_length)
+        max_length = new_length;
+        
+      new_move.followup_attacks += move(followup);
+    }
+
+    return move(new_move);
+  };
   
   
-  List<CheckersMove> result;
-  
+  // Determine in which directions we're allowed to attack...
+  let can_attack_backwards = (is_king || rules.can_all_pieces_attack_backwards);
+  let &dirs =
+      (can_attack_backwards? all_dirs : (is_white? white_dirs : black_dirs));
+  let dir_count = (can_attack_backwards? total_dir_count : normal_dir_count); 
+
   // For each direction...
-  let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
-  let dir_count = (is_king? king_dir_count : normal_dir_count); 
-  
   for (uint i = 0; i < dir_count; i++) {
     let dir = dirs[i];
 
@@ -91,6 +150,7 @@ static List<CheckersMove> get_legal_attacks__impl(
     // The victim is the piece that this attack will kill.
     var victim = start_pos + one_step[dir];
     // The victim's neighbor is the tile that we will move to with this attack.
+    // (unless we can fly after kills, but even then this tile must be empty)
     var victims_neighbor = victim + one_step[dir];
 
     // Check whether the neighbor exists, so we don't go over the edge of the
@@ -102,12 +162,13 @@ static List<CheckersMove> get_legal_attacks__impl(
     // We can't attack an empty neighboring tile...
     var victim_occupant = get_occupant(victim);
     if (victim_occupant == C::EMPTY) {
-      // If the neighbor is empty and this is a normal piece, we're done...
-      if (!is_king)
+      // If the neighbor is empty, we can stop if this is a normal piece or a
+      // non-flying king...
+      if (!is_king || !rules.can_king_fly)
         continue;
 
-      // If we're a king we look for the first non-empty piece and make that our
-      // victim... (flying king rule)
+      // If we're a flying king, there might still be potential victims further
+      // away. We look for the first non-empty piece and make that our victim...
       bool found_victim = false;
       
       for (;;) {
@@ -133,37 +194,25 @@ static List<CheckersMove> get_legal_attacks__impl(
     // Check if it's a valid attack...
     let is_victim_white = (victim_occupant == C::WHITE ||
                            victim_occupant == C::WHITE_KING);
-    let can_attack = (is_white != is_victim_white);  // Must be different colors
-    let is_victims_neighbor_empty =
+    let is_different_color = (is_white != is_victim_white);
+    let is_tombstone = (victim_occupant == C::TOMBSTONE);
+    let is_tile_next_to_victim_empty =
         (get_occupant(victims_neighbor) == C::EMPTY);
 
-    if (can_attack && is_victims_neighbor_empty) {
+    if (!is_tombstone && is_different_color && is_tile_next_to_victim_empty) {
       // This is a valid attack!
-      
-      // A linked list might be more efficient here but honestly I can't be
-      // bothered.
-      let new_pos = victims_neighbor;
-      var killed_list = newly_empty_tiles;  // Yep. Just copying the whole thing
-      killed_list.push_back(victim);
-      var followup_moves =
-        get_legal_attacks__impl(board, new_pos, is_white, is_king, killed_list);
+      result += finalize_attack(victim, victims_neighbor);
 
-      // Put together the CheckersMove datastructure...
-      CheckersMove new_move;
-      new_move.origin = start_pos;
-      new_move.destination = victims_neighbor;
-      var &max_length = new_move.longest_attack_chain_length;  // Alias
-      max_length = 1;
-
-      for (var &followup : followup_moves) {
-        let new_length = followup.longest_attack_chain_length + 1;
-        if (new_length > max_length)
-          max_length = new_length;
-        
-        new_move.followup_attacks.push_back(move(followup));
+      // If we're a flying king, we can also move to a position further behind
+      // the victim in international checkers...
+      if (is_king && rules.can_king_fly_after_kill) {
+        var next_tile = victims_neighbor + one_step[dir];
+        while (board->tile_exists(next_tile)
+               && get_occupant(next_tile) == C::EMPTY) {
+          result += finalize_attack(victim, next_tile);
+          next_tile += one_step[dir];
+        }
       }
-      
-      result.push_back(move(new_move));
     }
   }
 
@@ -171,17 +220,21 @@ static List<CheckersMove> get_legal_attacks__impl(
 }
 
 
-static List<CheckersMove> get_legal_attacks(const ABoard* board, Vec2i pos) {
+static List<CheckersMove> get_legal_attacks(
+      const ABoard* board,
+      Vec2i pos,
+      const CheckersRules& rules) {
   let piece = board->get(pos);
   let is_white = piece.is_white();
   let is_king = piece.is_king();
-  return get_legal_attacks__impl(board, pos, is_white, is_king, {pos});
+  return get_legal_attacks__impl(board, pos, is_white, is_king, {pos}, rules);
 }
 
 
 static List<CheckersMove> get_legal_normal_moves(
       const ABoard* board,
-      Vec2i pos) {
+      Vec2i pos,
+      const CheckersRules& rules) {
   using C = CellOccupant;
 
   let piece = board->get(pos);
@@ -191,8 +244,8 @@ static List<CheckersMove> get_legal_normal_moves(
   List<CheckersMove> result;
   
   // For each direction...
-  let &dirs = (is_king? king_dirs : (is_white? white_dirs : black_dirs));
-  let dir_count = (is_king? king_dir_count : normal_dir_count); 
+  let &dirs = (is_king? all_dirs : (is_white? white_dirs : black_dirs));
+  let dir_count = (is_king? total_dir_count : normal_dir_count); 
   
   for (uint i = 0; i < dir_count; i++) {
     let dir = dirs[i];
@@ -207,9 +260,9 @@ static List<CheckersMove> get_legal_normal_moves(
     if (board->get(neighbor).occupant == C::EMPTY)
       result.push_back(CheckersMove{pos, neighbor, 0, {}});
 
-    // Unless we're a flying king, that's the only possible move in this
+    // If this piece isn't a flying king, that's the only possible move in this
     // direction...
-    if (!is_king)
+    if (!is_king || !rules.can_king_fly)
       continue;
 
     // For flying kings we also check all the tiles behind the neighbor...
@@ -225,9 +278,9 @@ static List<CheckersMove> get_legal_normal_moves(
 }
 
 
-static void cull_illegal_moves__impl(
-    List<CheckersMove>* moves,
-    uint desired_length) {
+static void apply_choice_Filter__impl(
+      List<CheckersMove>* moves,
+      uint desired_length) {
   if (moves->empty())
     return;
   
@@ -235,7 +288,7 @@ static void cull_illegal_moves__impl(
     if (iter->longest_attack_chain_length < desired_length)
       iter = moves->erase(iter);
     else {
-      cull_illegal_moves__impl(&iter->followup_attacks, desired_length - 1);
+      apply_choice_Filter__impl(&iter->followup_attacks, desired_length - 1);
       ++iter;
     }
   }
@@ -246,13 +299,21 @@ static void cull_illegal_moves__impl(
 }
 
 
-static void cull_illegal_moves(RoundStartReport& report) {
+/// This function applies the filter rule that is stored in `rules`.
+static void apply_choice_filter(
+      RoundStartReport& report,
+      const CheckersRules& rules) {
+  assert_msg(rules.filter_rule == ChoiceFilterRule::LONGEST_CHAIN_ONLY,
+             "The function cull_illegal_moves(...) was called with a "
+             "choice filter rule which is not yet implemented there.");
   let longest = report.longest_available_attack_chain;
-  cull_illegal_moves__impl(&report.available_moves, longest);
+  apply_choice_Filter__impl(&report.available_moves, longest);
 }
 
 
-RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
+RoundStartReport ABoard::get_roundstart_report(
+      bool is_player_white,
+      const CheckersRules& rules) const {
 # define CONTINUE return
   using C = CellOccupant;
   
@@ -278,7 +339,7 @@ RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
     // This way of doing things is not very efficient, but it works!
     let pos = Vec2i(x,y);
     
-    for (var &attack : get_legal_attacks(this, pos)) {
+    for (var &attack : get_legal_attacks(this, pos, rules)) {
       let chain_length = attack.longest_attack_chain_length;
       if (chain_length > longest_chain)
         longest_chain = chain_length;
@@ -286,11 +347,11 @@ RoundStartReport ABoard::get_roundstart_report(bool is_player_white) const {
       report.available_moves.push_back(move(attack));
     }
     
-    for (var &normal_move : get_legal_normal_moves(this, pos))
+    for (var &normal_move : get_legal_normal_moves(this, pos, rules))
       report.available_moves.push_back(move(normal_move));
   });
 
-  cull_illegal_moves(report);
+  apply_choice_filter(report, rules);
 
   return report;
 # undef CONTINUE

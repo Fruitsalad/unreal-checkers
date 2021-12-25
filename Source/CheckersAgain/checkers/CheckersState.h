@@ -18,12 +18,14 @@ class CHECKERSAGAIN_API ACheckersState
 public:
   class ABoard* board;
   Map<Vec2i, APieceBase*> piece_actors;
+  List<AActor*> board_actors;
 
   bool is_whites_turn = true;
   bool has_already_moved = false;
   Vec2i piece_being_moved;
   uint longest_available_attack_chain = 0;
   List<CheckersMove> available_moves;
+  CheckersRules rules;
   
   ACheckersState();
   void BeginPlay() override;
@@ -33,6 +35,7 @@ public:
   void on_piece_moved(Vec2i pos, Vec2i new_position) override;
   
   void spawn_pieces();
+  void spawn_board();
 
   /** This function automagically guesses what kind of move it is. */
   void move(Vec2i origin, Vec2i destination);

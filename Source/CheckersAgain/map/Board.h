@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Array2D.hpp"
+#include "../checkers/CheckersRules.h"
 #include "Board.generated.h"
 
 
@@ -11,7 +12,11 @@ enum class CellOccupant {
   WHITE,
   BLACK,
   WHITE_KING,
-  BLACK_KING
+  BLACK_KING,
+
+  // This is a special type of occupant, which mark the places where a piece
+  // was killed before the end of a turn. Tombstones can block further attacks.
+  TOMBSTONE
 };
 
 enum Direction {
@@ -63,9 +68,9 @@ const inline Vec2i one_step[] = {{-1,1},{-1,-1},{1,-1},{1,1}};
 
 inline const Direction white_dirs[] = {NE, NW};
 inline const Direction black_dirs[] = {SE, SW};
-inline const Direction king_dirs[] = {NE, SE, SW, NW};
+inline const Direction all_dirs[] = {NE, SE, SW, NW};
 inline const uint normal_dir_count = 2;
-inline const uint king_dir_count = 4;
+inline const uint total_dir_count = 4;
 
 template<class Function>
 void for_each_direction(Function do_something) {
@@ -80,11 +85,10 @@ class CHECKERSAGAIN_API ABoard : public AActor {
 public:
   UPROPERTY(VisibleAnywhere, Category=Grid)
   class UGridComp* grid;
-  UPROPERTY(EditAnywhere, Category=Grid)
-  unsigned tiles_wide = 8;
   
   struct I_BoardVisualizer* visualizer = nullptr;
 	Array2D<GridCell> board;
+  uint tiles_wide = 8;
   
   ABoard();
 
@@ -99,8 +103,9 @@ public:
   bool tile_exists(Vec2i pos) const;
   void prepare_empty_board(uint new_width);
   void prepare_default_board(uint new_width);
-  RoundStartReport get_roundstart_report(bool is_player_white) const;
-  void move_piece(Vec2i old_pos, Vec2i new_pos);  // This function is not smart.
+  RoundStartReport get_roundstart_report(bool is_player_white,
+                                         const CheckersRules& rules) const;
+  void move_piece(Vec2i old_pos, Vec2i new_pos);  // This does nothing extra.
   void kill_piece(Vec2i pos);
   void promote_piece(Vec2i pos);
   bool cell_has_piece(Vec2i pos) const;

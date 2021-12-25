@@ -47,3 +47,17 @@ bool was_found(const C& iterator, const D& container) {
 
 /** A function worthy of a separate JavaScript library, now as a one-liner. */
 template<class Scalar> bool is_even(Scalar scalar) { return scalar % 2 == 0; }
+
+
+/** Addition operator for std::vectors. I just like the way it looks. */
+template<class Elem, class ...C>
+List<Elem, C...>& operator += (List<Elem, C...>& list, Elem&& new_element) {
+  list.push_back(std::forward<Elem>(new_element));
+  return list;
+}
+
+template<class Elem, class ...C>
+List<Elem, C...>& operator += (List<Elem, C...>& list, const Elem& new_elem) {
+  list.push_back(new_elem);
+  return list;
+}
