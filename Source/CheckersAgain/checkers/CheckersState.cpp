@@ -7,12 +7,12 @@
 
 
 ACheckersState::ACheckersState() : board(nullptr) {
-  static let TILE_MESH = get_mesh(TEXT("/Engine/BasicShapes/Plane"));
-  static let BORDER_MESH = get_mesh(TEXT("/Game/Objects/Border"));
-  static let CORNER_MESH = get_mesh(TEXT("/Game/Objects/Corner"));
-  static let PIECE_CLASS = get_class(TEXT("/Game/Objects/Piece"));
-  static let WHITE_MAT = get_material_inst(TEXT("/Game/Materials/WhiteRamp"));
-  static let BLACK_MAT = get_material_inst(TEXT("/Game/Materials/BrownRamp"));
+  constant TILE_MESH = get_mesh(TEXT("/Engine/BasicShapes/Plane"));
+  constant BORDER_MESH = get_mesh(TEXT("/Game/Objects/Border"));
+  constant CORNER_MESH = get_mesh(TEXT("/Game/Objects/Corner"));
+  constant PIECE_CLASS = get_class(TEXT("/Game/Objects/Piece"));
+  constant WHITE_MAT = get_material_inst(TEXT("/Game/Materials/WhiteRamp"));
+  constant BLACK_MAT = get_material_inst(TEXT("/Game/Materials/BrownRamp"));
 
   board_tile_mesh = TILE_MESH;
   board_border_mesh = BORDER_MESH;
@@ -112,14 +112,14 @@ void ACheckersState::spawn_board() {
 void ACheckersState::spawn_sides_of_board() {
   // Hardcoding the offset for the meshes isn't the best but anything else is
   // probably overengineering. I just want to get this game done at this point.
-  static let OFFSET = Vec(0, 0, -10);
-  static let BORDER_MESH_YAW = Rot(0, 90, 0);
+  constant OFFSET = Vec(0, 0, -10);
+  constant BORDER_MESH_YAW = Rot(0, 90, 0);
 
   var world = GetWorld();
   let board_rotation = board->GetActorRotation();
   let w = rules.board_width;
 
-  static let CORNER_TILES_SIZE = 4;
+  constant CORNER_TILES_SIZE = 4;
   Vec2i corner_tiles[CORNER_TILES_SIZE] = {
     Vec2i(-1, w),
     Vec2i(-1, -1),

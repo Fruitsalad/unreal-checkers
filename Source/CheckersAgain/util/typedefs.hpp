@@ -50,6 +50,7 @@ template<class C> constexpr C min_of = Limits<C>::lowest();
 // Slightly risky auto-abuse. Just #undef this when it's causing trouble.
 #define let const auto
 #define var auto
+#define constant static const auto
 // "fn" is short for "function". I mostly use it for lambda functions but it
 // also works on normal functions.
 #define fn auto
