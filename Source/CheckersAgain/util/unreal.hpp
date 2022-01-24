@@ -11,6 +11,7 @@
 using Vec = FVector;
 using Vec2i = FIntPoint;
 using Rot = FRotator;
+using TF = FTransform;
 using Plane = FPlane;
 using Ray = FRay;
 using Color = FColor;

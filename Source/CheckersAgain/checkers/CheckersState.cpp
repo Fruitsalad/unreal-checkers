@@ -35,6 +35,7 @@ void ACheckersState::BeginPlay() {
 
   spawn_pieces();
   spawn_board();
+  init_player_controllers();
   start_turn();
 }
 
@@ -165,6 +166,25 @@ void ACheckersState::spawn_sides_of_board() {
 }
 
 
+template<class DoSomething>
+static void for_each_player(DoSomething do_something) {
+  TArray<APlayerController*> player_controllers;
+  GEngine->GetAllLocalPlayerControllers(player_controllers);
+
+  for (var some_kind_of_player_controller : player_controllers) {
+    var player = Cast<ACheckersPlayer>(some_kind_of_player_controller);
+    if (player != nullptr)  // If this is null, it's not an ACheckersPlayer
+      do_something(player);
+  }
+}
+
+
+void ACheckersState::init_player_controllers() {
+  for_each_player([](ACheckersPlayer* player) {
+    player->initialize();
+  });
+}
+
 
 // This function only actually kills opponents, but I like this name better
 // than the correct name.
@@ -247,16 +267,9 @@ void ACheckersState::start_turn() {
   has_already_moved = false;
 
   // Inform all player controllers about the new turn...
-  TArray<APlayerController*> player_controllers;
-  GEngine->GetAllLocalPlayerControllers(player_controllers);
-
-  for (var some_kind_of_player_controller : player_controllers) {
-    var player = Cast<ACheckersPlayer>(some_kind_of_player_controller);
-    if (player == nullptr)
-      continue;  // Not an ACheckersPlayer
-
+  for_each_player([](ACheckersPlayer* player) {
     player->on_turn_started();
-  }
+  });
 }
 
 void ACheckersState::end_game(bool did_white_win) {

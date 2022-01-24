@@ -16,13 +16,22 @@ ACheckersPlayer::ACheckersPlayer() {
   bEnableClickEvents = true;
 }
 
-void ACheckersPlayer::BeginPlay() {
+void ACheckersPlayer::initialize() {
+  prepare_camera_transforms();
   make_board_clickable();
   make_pieces_clickable();
 }
 
-void ACheckersPlayer::bind_inputs() {
-  assert_(InputComponent);
+void ACheckersPlayer::prepare_camera_transforms() {
+  // This could be merged with make_board_clickable, but I can't be bothered.
+  for (let actor : actors_in_world(GetWorld())) {
+    if (actor->ActorHasTag(CAMERA_TF_TAG)) {
+      if (actor->ActorHasTag(WHITE_TAG))
+        white_camera_transform = actor->GetActorTransform();
+      if (actor->ActorHasTag(BLACK_TAG))
+        black_camera_transform = actor->GetActorTransform();
+    }
+  }
 }
 
 void ACheckersPlayer::make_pieces_clickable() {
@@ -31,16 +40,26 @@ void ACheckersPlayer::make_pieces_clickable() {
 }
 
 void ACheckersPlayer::make_board_clickable() {
-  for (AActor* actor : actors_in_world(GetWorld()))
-    if (actor->ActorHasTag(TEXT("BOARD")))
+  for (var actor : actors_in_world(GetWorld()))
+    if (actor->ActorHasTag(BOARD_TAG))
       actor->OnClicked.AddDynamic(this, &This::on_board_clicked);
 }
 
 
 void ACheckersPlayer::on_turn_started() {
   drop_piece();
-  cached_moves = &get_gamestate()->available_moves;
-  is_it_my_turn = true;
+  let state = get_gamestate();
+  cached_moves = &state->available_moves;
+
+  is_it_my_turn = ((state->is_whites_turn && am_i_white) ||
+                   (!state->is_whites_turn && am_i_black));
+
+  if (is_it_my_turn) {
+    let new_camera_tf =
+      (state->is_whites_turn? white_camera_transform : black_camera_transform);
+    swoosh_camera_to(new_camera_tf);
+  }
+
 }
 
 void ACheckersPlayer::on_piece_clicked(AActor* piece, FKey button) {
@@ -174,6 +193,14 @@ void ACheckersPlayer::do_move(const CheckersMove& move) {
     state->end_turn();
   }
 }
+
+void ACheckersPlayer::swoosh_camera_to(const TF& new_camera_tf) {
+  var pawn = GetPawn();
+  // For some reason, SetActorTransform does not set the rotation.
+  pawn->SetActorTransform(new_camera_tf);
+  pawn->SetActorRotation(new_camera_tf.GetRotation());
+}
+
 
 ACheckersState* ACheckersPlayer::get_gamestate() {
   var state = Cast<ACheckersState>(GetWorld()->GetGameState());

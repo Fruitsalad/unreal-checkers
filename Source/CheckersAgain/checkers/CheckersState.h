@@ -21,7 +21,7 @@ class CHECKERSAGAIN_API ACheckersState
   UPROPERTY() UMaterialInstance* white_tile_material;
   UPROPERTY() UMaterialInstance* black_tile_material;
 public:
-  class ABoard* board;
+  ABoard* board;
   Map<Vec2i, APieceBase*> piece_actors;
   List<AActor*> board_actors;
 
@@ -42,6 +42,7 @@ public:
   void spawn_pieces();
   void spawn_board();
   void spawn_sides_of_board();
+  void init_player_controllers();
 
   /** This function automagically guesses what kind of move it is. */
   void move(Vec2i origin, Vec2i destination);

@@ -2,7 +2,6 @@
 
 // This is an overarching header for the util folder.
 
-#include "util/after_failure.hpp"
 #include "util/afterwards.hpp"
 #include "util/debug.hpp"
 #include "util/exception.hpp"
