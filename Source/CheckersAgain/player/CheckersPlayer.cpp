@@ -32,6 +32,11 @@ void ACheckersPlayer::prepare_camera_transforms() {
         black_camera_transform = actor->GetActorTransform();
     }
   }
+
+  assert_msg(white_camera_transform.GetLocation() != Vec(0,0,0),
+             "White camera point has not been found (or it's at the origin)!");
+  //assert_msg(black_camera_transform.GetLocation() != Vec(0,0,0),
+  //         "Black camera point has not been found (or it's at the origin)!");
 }
 
 void ACheckersPlayer::make_pieces_clickable() {
@@ -57,7 +62,7 @@ void ACheckersPlayer::on_turn_started() {
   if (is_it_my_turn) {
     let new_camera_tf =
       (state->is_whites_turn? white_camera_transform : black_camera_transform);
-    swoosh_camera_to(new_camera_tf);
+    teleport_camera_to(new_camera_tf);
   }
 
 }
@@ -194,11 +199,8 @@ void ACheckersPlayer::do_move(const CheckersMove& move) {
   }
 }
 
-void ACheckersPlayer::swoosh_camera_to(const TF& new_camera_tf) {
-  var pawn = GetPawn();
-  // For some reason, SetActorTransform does not set the rotation.
-  pawn->SetActorTransform(new_camera_tf);
-  pawn->SetActorRotation(new_camera_tf.GetRotation());
+void ACheckersPlayer::teleport_camera_to(const TF& new_camera_tf) {
+  GetPawn()->SetActorTransform(new_camera_tf);
 }
 
 

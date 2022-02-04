@@ -249,16 +249,16 @@ static List<CheckersMove> get_legal_normal_moves(
   
   for (uint i = 0; i < dir_count; i++) {
     let dir = dirs[i];
-
+    
     // Get the neighbor...
     let neighbor = pos + one_step[dir];
-
     if (!board->tile_exists(neighbor))
       continue;
 
     // If it's empty, this is a valid move...
-    if (board->get(neighbor).occupant == C::EMPTY)
-      result.push_back(CheckersMove{pos, neighbor, 0, {}});
+    if (board->get(neighbor).occupant != C::EMPTY)
+      continue;
+    result += CheckersMove{pos, neighbor, 0, {}};
 
     // If this piece isn't a flying king, that's the only possible move in this
     // direction...
@@ -269,7 +269,7 @@ static List<CheckersMove> get_legal_normal_moves(
     var next_tile = neighbor + one_step[dir];
     while (board->tile_exists(next_tile)
            && board->get(next_tile).occupant == C::EMPTY) {
-      result.push_back(CheckersMove{pos, next_tile, 0, {}});
+      result += CheckersMove{pos, next_tile, 0, {}};
       next_tile += one_step[dir];
     }
   }

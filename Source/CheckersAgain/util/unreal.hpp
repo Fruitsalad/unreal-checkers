@@ -150,3 +150,17 @@ inline AStaticMeshActor* spawn_static_mesh(
   mesh_comp->SetMaterial(0, material);
   return mesh_actor;
 }
+
+inline AStaticMeshActor* spawn_static_mesh(
+    UWorld* world,
+    UStaticMesh* mesh,
+    TF transform,
+    UMaterialInterface* material) {
+  var new_actor = world->SpawnActor(AStaticMeshActor::StaticClass(),
+                                    &transform);
+  var mesh_actor = Cast<AStaticMeshActor>(new_actor);
+  var mesh_comp = mesh_actor->GetStaticMeshComponent();
+  mesh_comp->SetStaticMesh(mesh);
+  mesh_comp->SetMaterial(0, material);
+  return mesh_actor;
+}

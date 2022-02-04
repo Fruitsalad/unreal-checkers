@@ -44,10 +44,7 @@ public:
   void grab_piece(Vec2i piece);
   void drop_piece();
   void do_move(const CheckersMove& move);
-
-  // "swooshing" is like moving but animated and fancy, okay?
-  // Please don't question my naming skills.
-  void swoosh_camera_to(const TF& new_camera_tf);
+  void teleport_camera_to(const TF& new_camera_tf);
 
 private:
   class ACheckersState* get_gamestate();

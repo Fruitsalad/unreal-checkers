@@ -149,15 +149,12 @@ void ACheckersState::spawn_sides_of_board() {
         world, board_corner_mesh,
         corner_loc, rotation, black_tile_material
     );
-    var border = spawn_static_mesh(
-        world, board_border_mesh,
-        border_loc, rotation + BORDER_MESH_YAW, black_tile_material
+    
+    let side_transformation =
+      TF(rotation + BORDER_MESH_YAW, border_loc, Vec(rules.board_width, 1, 1));
+    spawn_static_mesh(
+        world, board_border_mesh, side_transformation, black_tile_material
     );
-
-    // Scale the straight border mesh so it's as wide as the playing area...
-    var transform = border->GetActorTransform();
-    transform.SetScale3D(Vec(rules.board_width, 1, 1));
-    border->SetActorTransform(transform);
 
     // We carry next_corner_loc over to corner_loc for efficiency, otherwise we
     // would calculate it twice.
