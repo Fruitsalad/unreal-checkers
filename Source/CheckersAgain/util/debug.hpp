@@ -100,14 +100,14 @@
 
 /** Check whether an expression is true, for the purpose of sanity testing.
  * syntax: assert_(expression) */
-#define assert_(...) FRUIT_ASSERT(__VA_ARGS__)
+#define assuming(...) FRUIT_ASSERT(__VA_ARGS__)
 
 
 /** It's `assert_` but with a custom message.
  * Note: Be careful to not put any commas in the expression. The preprocessor
  * isn't very smart.
  * syntax: assert_msg(expr, msg) */
-#define assert_msg(expr, ...) FRUIT_ASSERT_MSG(expr, __VA_ARGS__)
+#define assuming_msg(expr, ...) FRUIT_ASSERT_MSG(expr, __VA_ARGS__)
 
 
 /** Trigger a breakpoint and crash the program, even in release mode. */

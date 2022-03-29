@@ -33,12 +33,12 @@ public:
 	}
 
 	fn get(int x, int y) -> Cell& {
-		assert_(is_valid(x,y));
+		assuming (is_valid(x,y));
 		return cells[x + y * width];
 	}
 
 	fn get(int x, int y) const -> const Cell& {
-		assert_(is_valid(x,y));
+		assuming (is_valid(x,y));
 		return cells[x + y * width];
 	}
 

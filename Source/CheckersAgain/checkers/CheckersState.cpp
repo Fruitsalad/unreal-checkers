@@ -28,7 +28,7 @@ void ACheckersState::BeginPlay() {
   var world = GetWorld();
 
   board = get_actor_of_class<ABoard>(world);
-  assert_msg(board != nullptr, "There must be an ABoard in the world.");
+  assuming_msg (board != nullptr, "There must be an ABoard in the world.");
   board->visualizer = this;
   board->init();
   board->prepare_default_board(rules.board_width);
@@ -67,7 +67,7 @@ void ACheckersState::spawn_pieces() {
 #define CONTINUE return
   using C = CellOccupant;
   
-  assert_(board != nullptr);
+  assuming (board != nullptr);
   let rotation = board->GetActorRotation();
   
   board->for_each_checkers_tile([&](uint x, uint y) {
@@ -223,7 +223,7 @@ void ACheckersState::move(Vec2i origin, Vec2i destination) {
   // piece and its destination. This behavior happens to work for every kind of
   // move in the game.
   
-  assert_msg(origin != destination, "That's not a move, dingus");
+  assuming_msg (origin != destination, "That's not a move, dingus");
 
   has_already_moved = true;
   piece_being_moved = destination;

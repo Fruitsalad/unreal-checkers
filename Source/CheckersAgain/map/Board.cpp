@@ -295,7 +295,7 @@ static void apply_choice_Filter__impl(
 
   // If the list of moves wasn't empty when we started, at least one move should
   // survive the culling.
-  assert_(!moves->empty());
+  assuming (!moves->empty());
 }
 
 
@@ -303,7 +303,7 @@ static void apply_choice_Filter__impl(
 static void apply_choice_filter(
       RoundStartReport& report,
       const CheckersRules& rules) {
-  assert_msg(rules.filter_rule == ChoiceFilterRule::LONGEST_CHAIN_ONLY,
+  assuming_msg (rules.filter_rule == ChoiceFilterRule::LONGEST_CHAIN_ONLY,
              "The function cull_illegal_moves(...) was called with a "
              "choice filter rule which is not yet implemented there.");
   let longest = report.longest_available_attack_chain;
@@ -361,7 +361,7 @@ RoundStartReport ABoard::get_roundstart_report(
 void ABoard::move_piece(Vec2i old_pos, Vec2i new_pos) {
   let &new_tile = get(new_pos);
   var &old_tile = get(old_pos);
-  assert_(new_tile.occupant == CellOccupant::EMPTY);
+  assuming (new_tile.occupant == CellOccupant::EMPTY);
   get(new_pos).occupant = old_tile.occupant;
   old_tile.occupant = CellOccupant::EMPTY;
 
@@ -378,7 +378,7 @@ void ABoard::kill_piece(Vec2i pos) {
 
 void ABoard::promote_piece(Vec2i pos) {
   var &tile = get(pos);
-  assert_(tile.occupant != CellOccupant::EMPTY);
+  assuming (tile.occupant != CellOccupant::EMPTY);
   
   if (tile.occupant == CellOccupant::WHITE)
     tile.occupant = CellOccupant::WHITE_KING;

@@ -33,7 +33,7 @@ void ACheckersPlayer::prepare_camera_transforms() {
     }
   }
 
-  assert_msg(white_camera_transform.GetLocation() != Vec(0,0,0),
+  assuming_msg (white_camera_transform.GetLocation() != Vec(0,0,0),
              "White camera point has not been found (or it's at the origin)!");
   //assert_msg(black_camera_transform.GetLocation() != Vec(0,0,0),
   //         "Black camera point has not been found (or it's at the origin)!");
@@ -160,11 +160,11 @@ void ACheckersPlayer::toggle_piece_held(Vec2i piece) {
 }
 
 void ACheckersPlayer::grab_piece(Vec2i piece) {
-  assert_(!is_piece_held);  // The caller has to make sure nothing is selected.
+  assuming (!is_piece_held);  // The caller has to make sure nothing is selected.
   
   var state = get_gamestate();
   
-  assert_msg(!state->has_already_moved || piece == state->piece_being_moved,
+  assuming_msg (!state->has_already_moved || piece == state->piece_being_moved,
     "After the first move, it is only allowed to continue with the same piece");
   
   var maybe_result = state->piece_actors.find(piece);
@@ -212,6 +212,6 @@ void ACheckersPlayer::teleport_camera_to(const TF& new_camera_tf) {
 
 ACheckersState* ACheckersPlayer::get_gamestate() {
   var state = Cast<ACheckersState>(GetWorld()->GetGameState());
-  assert_(state != nullptr);
+  assuming (state != nullptr);
   return state;
 }

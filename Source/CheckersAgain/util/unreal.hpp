@@ -21,7 +21,7 @@ using actors_in_world = TActorRange<AActor>;
 template<class ...C>
 fn get_class(const TCHAR* path) {
   ConstructorHelpers::FClassFinder<C...> finder(path);
-  assert_msg(finder.Succeeded(),
+  assuming_msg (finder.Succeeded(),
       ("Failed to find class \""+String(TCHAR_TO_UTF8(path))+"\"").c_str());
   return finder.Class;
 }
@@ -34,7 +34,7 @@ inline fn get_class(const TCHAR* path) {
 template<class ...C>
 fn get_object(const TCHAR* path) {
   ConstructorHelpers::FObjectFinder<C...> finder(path);
-  assert_(finder.Succeeded(),
+  assuming_msg (finder.Succeeded(),
       ("Failed to find object \""+String(TCHAR_TO_UTF8(path))+"\"").c_str());
   return finder.Object;
 }
