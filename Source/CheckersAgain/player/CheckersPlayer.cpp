@@ -192,10 +192,16 @@ void ACheckersPlayer::do_move(const CheckersMove& move) {
   state->move(move.origin, move.destination);
   held_piece = move.destination;
   cached_moves = &move.followup_attacks;
-
+  
+  // End of turn...
   if (cached_moves->empty()) {
     state->maybe_promote(move.destination);
     state->end_turn();
+  }
+  // In some rulesets a piece may be promoted in the middle of a turn...
+  else if (state->rules.can_continue_after_promotion
+           && !state->rules.can_promote_only_at_end_of_turn) {
+    state->maybe_promote(move.destination);
   }
 }
 
