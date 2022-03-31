@@ -1,11 +1,7 @@
 ![](screenshot.png)
 
 This is an Unreal Engine 5 implementation of international checkers.
-I worked on it leisurely to learn to work with Unreal.
-Over the course of this project I've also learned that implementing checkers
-is more difficult than you'd expect, since there's numerous
-rules concerning chaining attacks which I wasn't previously aware of.
-
+I worked on it leisurely over the course of two months to learn to work with Unreal.
 By default, this uses an international checkers ruleset, but you can also
 make it play English draughts or a few other versions of checkers by changing
 this line in `CheckersState.cpp`:
@@ -23,7 +19,10 @@ article, so the versions used for this project are slightly outdated.
 
 I'm generally quite satisfied with the quality of code
 I achieved in this project.
-It's not perfect by any means, but I somewhat like the way the code looks. 
+It's not perfect by any means, but I somewhat like the way the code looks.
+Over the course of this project I've learned that implementing checkers
+is more difficult than you'd expect, since there's numerous
+rules concerning chaining attacks that I wasn't previously aware of.
 
 By the way, the project is called "CheckersAgain" in the code because I first
 tried making a checkers game with Unreal blueprints,
